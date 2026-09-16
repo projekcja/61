@@ -235,8 +235,11 @@ scarcest thing a player has, and spending one on nothing is a rule teaching the 
 still shows in the hand, greyed, because a whip that is absent while you hold no party never
 teaches why.
 
-Wilds narrowed the gap between the two thinking bots and then gave some of it back: shrewd beat
-greedy 65.8% with no cards, 59.2% with four, and 61.9% with seven. Neither move is a regression. A
+Wilds narrowed the gap between the two thinking bots: shrewd beat greedy 65.8% with no cards and
+has sat between 59% and 62% ever since — 59.2% with four cards, 61.9% with seven, 59.8% with seven
+and a wider deck. Only the first of those moves is real. At 480 campaigns the 95% interval on a rate
+near 60% is about ±4.4 points, so every later measurement is the same number, and an earlier draft of
+this section that read a story into the wobble was reading noise. A
 card is a fixed-size lever, so it is worth proportionally more to the weaker position, and the
 deliberately conservative heuristic every seat shares (hold unless the board argues otherwise)
 leaves less room for a better plan to show. The three later cards pull the other way because two of
@@ -318,25 +321,29 @@ greedy bot's move goes to the engine directly or through a round trip of model-s
 `scripts/balance.ts` plays every seed twice with the strategies swapped between the same two seats,
 because the parties are wildly unequal and a naive comparison would mostly measure who drew Likud.
 
-Re-measured with seven wilds in play: **greedy beats random 81.3%** over 480 campaigns, every one of
+Re-measured with seven wilds in play: **greedy beats random 83.1%** over 480 campaigns, every one of
 them reaching a winner and none hitting the turn cap, a campaign running a median of 18 turns across
-a mean of 4.05 parliaments. Forming a coalition takes a median of 2 weeks — well inside the six-week
+a mean of 4.10 parliaments. Forming a coalition takes a median of 2 weeks — well inside the six-week
 limit. Governments last a mean of 2.64 years, inside the four-year term, so the term is a ceiling on
-the safe ones rather than the usual way one ends. **Shrewd beats greedy 61.9%.**
+the safe ones rather than the usual way one ends. **Shrewd beats greedy 59.8%.**
 
 The evenly-matched tail is long and does not need shortening. Greedy against itself still forms in a
-median of 2 weeks, but the tail thickened when the last three cards went in: a 400-seed probe put
-negotiations of ten weeks or more at 5 in 400 with four cards and 12 in 400 with seven, p99 moving
-10 → 14. Dropping one card at a time attributes most of that to the auction, which is the expected
+median of 2 weeks, and negotiations of ten weeks or more run at somewhere between 0 and 8 in 400.
+That range is the finding rather than a sloppy way of quoting one: the first 400-seed set measured
+after the deck grew returned 0 and a p99 of 9, and two further sets on the same code returned 7 and
+8 with a p99 of 14 and 12. One seed set is not enough to measure a thin tail, and a single flattering
+run of it is the easiest number in this file to fool yourself with.
+
+Dropping one card at a time attributes the earlier thickening to the auction, which is the expected
 shape rather than a regression — it is the only card that takes a list back off a rival, so a board
-where two blocs both hold one takes longer to settle. Nothing in the 480-campaign run failed to
-reach a winner, and the forming deadline still dissolves a house that cannot agree, so the longer
-tail is the rule working rather than a stall to design out.
+where two blocs both hold one takes longer to settle. Nothing in any 480-campaign run has failed to
+reach a winner, and the forming deadline still dissolves a house that cannot agree, so the long tail
+is the rule working rather than a stall to design out.
 
 Two identical bots with identical money and no tiebreaker beyond the dice is exactly the position
 that should be able to deadlock. The single worst board moves around between runs — 61 weeks on one
-measurement, 24 on the next — which is what a thin tail of outliers looks like and why the
-distribution is quoted here instead of the maximum.
+measurement, 24 on another, 9 on a third — which is what a thin tail of outliers looks like, and why
+the distribution is quoted here instead of the maximum.
 
 `scripts/tune.ts` is the other half of this, and the one to reach for when changing a bot rather than
 a rule. It plays a matchup over four boards with the seats swapped — 3200 games a configuration —

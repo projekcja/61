@@ -8,6 +8,17 @@
  *
  * Adding or removing the ideology-tagged cards is the dial for how much
  * politics matters, and it moves nothing else.
+ *
+ * On the writing, since this is the only part of the game with a voice. A card
+ * is a news brief: declarative, specific, and never signposting itself. The
+ * comedy is that the line is plausible, so it comes from the detail — a hotel
+ * on the Dead Sea, a director-general, a photograph at a petrol station near
+ * Latrun — and never from wordplay or from a line telling you it was a joke.
+ * The test is whether a reader who did not know it was funny would take it for
+ * a filing from the political desk. If not, it is winking, and it should be cut.
+ *
+ * Not every card should land, either. A deck that quips uniformly is a deck
+ * with no contrast, and the flat ones are what make the Dead Sea line work.
  */
 
 import { EXTRA_MINISTRIES } from "./ministries";
@@ -112,6 +123,36 @@ const moveSeats = (from: Party, to: Party, count: number): number => {
   return moved;
 };
 
+/**
+ * Weeks in which nothing was agreed.
+ *
+ * Deadpan on purpose. None of these is a joke with a shape — they are filings
+ * from a week of coalition talks that produced nothing, and the comedy is
+ * supposed to be that they are all completely plausible.
+ */
+const QUIET_WEEKS = [
+  "A quiet week. Nothing but position papers and leaks about position papers.",
+  "A quiet week. Three lists announce they are not negotiating with anybody, from the same conference room.",
+  "A quiet week. The talks move to a hotel, which is reported as progress.",
+  "A quiet week. Somebody counts to 61 on live television, using a chart, and is wrong.",
+  "A quiet week. Both sides brief that the other side is panicking.",
+  "A quiet week. Each side appoints a negotiating team, and the teams agree to meet next week.",
+  "A quiet week. The only movement all week is a photograph of two advisers at a petrol station near Latrun.",
+  "A quiet week. Nothing is agreed, and all of it is denied.",
+];
+
+/** Years in which the government governed. */
+const QUIET_YEARS = [
+  "A quiet year. The government governs, which nobody reports.",
+  "A quiet year. The cabinet approves a five-year plan, which is longer than most governments.",
+  "A quiet year. The coalition meets weekly and agrees the agenda for the following meeting.",
+  "A quiet year. A committee is appointed to review the findings of the last committee.",
+  "A quiet year. Two ministers tour the north and are photographed pointing at things.",
+  "A quiet year. A minister opens a stretch of road that was finished under the last government.",
+  "A quiet year. The opposition demands an election, and the polls advise them against it.",
+  "A quiet year. Nothing is reformed and nothing collapses, and the evening news loses viewers.",
+];
+
 export const CARDS: Card[] = [
   // ----------------------------------------------------------------- forming
   {
@@ -141,7 +182,7 @@ export const CARDS: Card[] = [
       for (const party of Object.values(state.parties)) {
         party.package = party.package.filter((key) => key !== doomed.key);
       }
-      return `${doomed.name} is folded into another office. Everyone loses that chip, including the coalitions already built on it.`;
+      return `${doomed.name} is folded into a larger ministry, whose minister is not told in advance. Everyone loses that chip, including the coalitions already built on it.`;
     },
   },
   {
@@ -156,7 +197,7 @@ export const CARDS: Card[] = [
       const [keeper, absorbed] = rng.pick(pairs);
       keeper.seats += absorbed.seats;
       delete state.parties[absorbed.key];
-      return `${TheList(absorbed.name)} folds into ${theList(keeper.name)}. One list, ${keeper.seats} mandates, same ${BLOC_LABEL[keeper.bloc].toLowerCase()} politics.`;
+      return `${TheList(absorbed.name)} folds into ${theList(keeper.name)} on a joint ticket announced as a merger of equals. One list, ${keeper.seats} mandates, same ${BLOC_LABEL[keeper.bloc].toLowerCase()} politics, one leader.`;
     },
   },
 
@@ -191,7 +232,7 @@ export const CARDS: Card[] = [
         package: [],
         refusals: [],
       };
-      return `${name} registers as a new list and polls straight into the Knesset with ${taken} mandates, most of them borrowed from ${theList(first.name)} and ${theList(second.name)}.`;
+      return `${name} registers as a new list, promising a politics above the old divisions, and polls straight into the Knesset with ${taken} mandates — most of them borrowed from ${theList(first.name)} and ${theList(second.name)}, who are the old divisions.`;
     },
   },
   {
@@ -208,7 +249,7 @@ export const CARDS: Card[] = [
       // A red line is a promise made by a leader. Change the leader and the
       // promise goes with them, which is the only way back from one early.
       party.refusals = [];
-      return `${party.name} holds primaries and replaces its leader. Every red line the old one drew — ${lifted} of them — dies with the leadership.`;
+      return `${party.name} holds primaries and replaces its leader, who congratulates the winner warmly and at length. Every red line the old one drew — ${lifted} of them — dies with the leadership.`;
     },
   },
   {
@@ -234,7 +275,7 @@ export const CARDS: Card[] = [
       if (partners.length === 0) return null;
       const leaving = rng.pick(partners);
       release(leaving);
-      return `${TheList(leaving.name)} walks out of the coalition over a cabinet row. ${leaving.seats} mandates gone.`;
+      return `${TheList(leaving.name)} walks out of the coalition over a cabinet row nobody outside the cabinet can explain. ${leaving.seats} mandates gone.`;
     },
   },
   {
@@ -248,7 +289,7 @@ export const CARDS: Card[] = [
       const [first, second] = rng.sample(partners, 2);
       release(first);
       release(second);
-      return `The budget fails its second reading. ${TheList(first.name)} and ${theList(second.name)} both leave the government.`;
+      return `The budget fails its second reading at two in the morning, eleven votes short of a coalition that has 61. ${TheList(first.name)} and ${theList(second.name)} both leave the government.`;
     },
   },
   {
@@ -261,7 +302,7 @@ export const CARDS: Card[] = [
       const pm = playerOf(state, state.primeMinister);
       pm.yearsInPower += 1;
       state.governmentYears += 1;
-      return `A landmark law passes and the government rides the credit. ${pm.name} banks an extra year.`;
+      return `A landmark law passes, and four parties hold separate press conferences to explain that it was their idea. ${pm.name} banks an extra year.`;
     },
   },
   {
@@ -285,7 +326,7 @@ export const CARDS: Card[] = [
       if (partners.length === 0) return null;
       const accused = rng.pick(partners);
       release(accused);
-      return `A corruption probe reaches ${theList(accused.name)}. They resign from the coalition rather than answer for it.`;
+      return `A corruption probe reaches ${theList(accused.name)}, which discovers an urgent disagreement with the government on an unrelated matter and resigns from the coalition over that instead.`;
     },
   },
 
@@ -308,7 +349,7 @@ export const CARDS: Card[] = [
       if (!surrendered) return null;
       party.package = party.package.filter((key) => key !== surrendered);
       const name = ministryByKey(state, surrendered)?.name ?? surrendered;
-      return `${TheList(party.name)} minister for ${name} resigns, and the portfolio goes back to whoever paid for it. The party stays, on a cheaper package than before.`;
+      return `${TheList(party.name)} minister for ${name} resigns to spend more time with a family that has already given several interviews about missing him. The portfolio goes back to whoever paid for it, and the party stays on a cheaper package than before.`;
     },
   },
   {
@@ -360,7 +401,7 @@ export const CARDS: Card[] = [
       if (pm.yearsInPower <= 0) return null;
       // The mirror of the landmark law: a year in office that buys nothing.
       pm.yearsInPower -= 1;
-      return `The country stops for a fortnight and the government spends the year surviving it. ${pm.name} loses a year off the record.`;
+      return `The country stops for a fortnight. The airport closes, the ports close, the banks close, and the government spends the rest of the year explaining that it has not lost control. ${pm.name} loses a year off the record.`;
     },
   },
   {
@@ -394,7 +435,7 @@ export const CARDS: Card[] = [
       const [from, to] = rng.sample(parties, 2);
       const moved = moveSeats(from, to, rng.int(1, 2));
       if (moved === 0) return null;
-      return `${moved === 1 ? "A member" : `${moved} members`} of ${theList(from.name)} cross the floor to ${theList(to.name)}.`;
+      return `${moved === 1 ? "A member" : `${moved} members`} of ${theList(from.name)} cross the floor to ${theList(to.name)}, on a matter of deep principle that arrived the same week as the committee appointments.`;
     },
   },
   {
@@ -415,10 +456,13 @@ export const CARDS: Card[] = [
     title: "A quiet stretch",
     phases: ["forming", "governing", "rebuilding"],
     weight: () => 5,
-    play: (state) =>
-      state.phase === "forming"
-        ? "A quiet week. Nothing but position papers and leaks about position papers."
-        : "A quiet year. The government governs, which nobody reports.",
+    // The most likely card in the deck by some way, which for a long time meant
+    // one of two lines. A player sees this more often than anything else the
+    // game says, so it is the one card where the writing is the feature: a week
+    // in which nothing happens is the most Israeli thing a coalition does, and
+    // it should not be the most repetitive thing the game says back.
+    play: (state, rng) =>
+      rng.pick(state.phase === "forming" ? QUIET_WEEKS : QUIET_YEARS) ?? "A quiet stretch.",
   },
 
   {
@@ -439,6 +483,20 @@ export const CARDS: Card[] = [
       return ministry.budget > before
         ? `A court ruling hands ${ministry.name} authority it never had. Worth ${ministry.budget}bn now, up from ${before}bn, in every hand and every deal already signed.`
         : `${ministry.name} is stripped of half its powers. Worth ${ministry.budget}bn now, down from ${before}bn, including to whoever is already holding it.`;
+    },
+  },
+  {
+    id: "night-budget",
+    title: "The budget passes at four in the morning",
+    phases: ["governing", "rebuilding"],
+    weight: (state) => (state.primeMinister && state.ministries.length > 0 ? 1.6 : 0),
+    play: (state, rng) => {
+      const ministry = rng.pick(state.ministries);
+      if (!ministry) return null;
+      const before = ministry.budget;
+      ministry.budget = clamp(ministry.budget + rng.int(2, 4), 1, 20);
+      if (ministry.budget === before) return null;
+      return `The budget passes at four in the morning. By breakfast somebody has found the clause moving ${ministry.budget - before}bn into ${ministry.name}, and no member of the coalition will admit to having drafted it. Worth ${ministry.budget}bn now, up from ${before}bn.`;
     },
   },
   {
@@ -517,7 +575,7 @@ export const CARDS: Card[] = [
         package: [],
         refusals: [],
       };
-      return `${TheList(party.name)} splits. ${name} breaks away with ${breakaway} mandates, and sits further ${drift > 0 ? "right" : "left"} than the list it left.`;
+      return `${TheList(party.name)} splits over what both halves describe as the same principle. ${name} breaks away with ${breakaway} mandates and sits further ${drift > 0 ? "right" : "left"} than the list it left.`;
     },
   },
   {
@@ -532,7 +590,7 @@ export const CARDS: Card[] = [
       const [refuser, target] = rng.pick(pairs);
       const turns = rng.int(3, 6);
       refuser.refusals.push({ partyKey: target.key, until: state.turn + turns });
-      return `${refuser.name} rules it out on the record: they will not sit in any government with ${theList(target.name)}. That holds for ${turns} turns.`;
+      return `${refuser.name} rules it out on the record, in writing, on camera, and signed by every one of its members: no government with ${theList(target.name)}. That holds for ${turns} turns.`;
     },
   },
   {
@@ -570,7 +628,7 @@ export const CARDS: Card[] = [
       }
       if (moved === 0) return null;
       const gainingBloc = BLOC_LABEL[gaining[0].bloc];
-      return `The mood shifts. ${moved} mandates move toward the ${gainingBloc.toLowerCase()}.`;
+      return `The mood shifts for no reason any of the four panels on television can agree on. ${moved} mandates move toward the ${gainingBloc.toLowerCase()}.`;
     },
   },
   {
@@ -702,6 +760,33 @@ export const CARDS: Card[] = [
     },
   },
 
+  {
+    id: "rotation",
+    title: "A rotation agreement is offered",
+    phases: ["forming"],
+    weight: (state) => (unaligned(state).some((party) => party.seats >= 4) ? 1.4 : 0),
+    play: (state, rng) => {
+      const loose = unaligned(state).filter((party) => party.seats >= 4);
+      if (loose.length === 0) return null;
+      const party = rng.pick(loose);
+      feel(state, party, 0.32, "a rotation it intends to be on the first half of");
+      return `${TheList(party.name)} lets it be known that it will sign a rotation agreement, on the single condition that it goes first. Nobody who has ever gone second in this country has taken their turn, and ${theList(party.name)}'s price has gone up to match.`;
+    },
+  },
+  {
+    id: "agreement-published",
+    title: "The coalition agreement is published",
+    phases: ["governing", "rebuilding"],
+    weight: (state) => (paidPartners(state).length > 1 ? 1.7 : 0),
+    play: (state, rng) => {
+      const partners = paidPartners(state);
+      if (partners.length < 2) return null;
+      const [reader, favoured] = rng.sample(partners, 2);
+      feel(state, reader, -0.4, "page 61 of an agreement it signed unread");
+      return `The full coalition agreement is published: ninety-one pages, four annexes, and a clause on page 61 promising ${theList(favoured.name)} something none of the others were told about. ${TheList(reader.name)} confirms that it signed the document without reading it, on the record, apparently as a defence.`;
+    },
+  },
+
   // --------------------------------------------------- the street and the news
   {
     id: "mass-protest",
@@ -824,6 +909,26 @@ export const CARDS: Card[] = [
       const lifted = party.refusals.length;
       party.refusals = [];
       return `${TheList(party.name)} is taken to court over the terms it registered its list on, and the refusals it published are struck out as unlawful conditions. ${lifted} red line${lifted === 1 ? "" : "s"} gone, and the party will now talk to anybody.`;
+    },
+  },
+  {
+    id: "denied-meeting",
+    title: "Nobody was at the meeting",
+    phases: ["forming", "governing", "rebuilding"],
+    weight: (state) =>
+      Object.values(state.parties).some((party) => party.refusals.length > 0) ? 1.5 : 0,
+    // The court card strikes every red line a list published. This one drops
+    // exactly one, and says nothing about why, which is the more common way a
+    // refusal actually ends: not struck down, just never mentioned again.
+    play: (state, rng) => {
+      const bound = Object.values(state.parties).filter((party) => party.refusals.length > 0);
+      if (bound.length === 0) return null;
+      const party = rng.pick(bound);
+      const dropped = rng.pick(party.refusals);
+      const other = dropped ? state.parties[dropped.partyKey] : undefined;
+      if (!dropped || !other) return null;
+      party.refusals = party.refusals.filter((refusal) => refusal !== dropped);
+      return `A photograph appears of ${theList(party.name)}'s leader leaving a house in Kfar Shmaryahu at one in the morning, twenty minutes behind ${theList(other.name)}'s. Both offices confirm that no meeting took place, and that it went well. One red line stops being mentioned.`;
     },
   },
   {
