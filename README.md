@@ -192,7 +192,7 @@ the board was about *timing*, which is a strange gap in a game about coalitions.
 A **wild** is the one thing a player keeps. One is dealt to each player at the top of every
 parliament, at most two are held at once — drawing past the limit discards the draw — and it is
 played on the sealed offer like everything else, so it is still spent blind against a rival
-deciding the same thing in the same envelope. There are four:
+deciding the same thing in the same envelope. There are seven:
 
 | | |
 | --- | --- |
@@ -200,10 +200,28 @@ deciding the same thing in the same envelope. There are four:
 | **An ultimatum** | Strike every red line standing between you and one list. It does not come back. |
 | **A reshuffle** | Take back the portfolios locked with one partner, and keep the partner anyway. |
 | **The recess** | The house rises early. This year does not count against the term. |
+| **The auction** | One list hears every offer fresh. What it already has counts for nothing. |
+| **An exclusivity** | One list talks to nobody but you for two weeks. It still has to be paid. |
+| **The extension** | The President grants another week. The house does not dissolve this time. |
 
-All four are levers on rules that already exist rather than new subsystems: one suspends the
-auction's verdict, one strikes a red line, one unlocks a package, one stops the clock. A fifth card
+All seven are levers on rules that already exist rather than new subsystems: one suspends the
+auction's verdict, one strikes a red line, one draws a red line, one unlocks a package, one reopens
+a package somebody else paid for, one stops the term clock and one stops the forming clock. A card
 wanting a mechanic of its own is a sign it should be a law or a deck card instead.
+
+They are spread across the game as deliberately as across the rulebook. The first four could only be
+played from in front: you had to hold a party to whip it, hold a package to reshuffle it, hold the
+government to send it home, so a player being outbid held cards they could not use. The auction and
+the exclusivity are levers for the seat that is behind — the auction suspends both halves of the
+incumbent's advantage on one list, since defending is otherwise cheaper than capturing twice over,
+and the exclusivity takes a list off the market before a rival can bid. It plays on a list already
+in your coalition too, where it is the whip narrowed to a single partner, though a player short of a
+majority usually wants the capture. The extension is worth nothing on any board except the week the
+Knesset would otherwise dissolve.
+
+The exclusivity is written as ordinary carded refusals against every rival's own list, so it lapses
+on the same timer every other refusal does and an ultimatum breaks it the same way. A card that
+could not be answered by another card would be the only one in the deck.
 
 They land before the auction resolves, which is what makes a wild a move rather than an
 announcement — an ultimatum opens a list to the same turn's bid, and a reshuffle funds it, through
@@ -217,10 +235,13 @@ scarcest thing a player has, and spending one on nothing is a rule teaching the 
 still shows in the hand, greyed, because a whip that is absent while you hold no party never
 teaches why.
 
-Wilds narrowed the gap between the two thinking bots — shrewd beat greedy 65.8% before and 59.2%
-after — which is the expected shape rather than a regression. A card is a fixed-size lever, so it is
-worth proportionally more to the weaker position, and the deliberately conservative heuristic every
-seat shares (hold unless the board argues otherwise) leaves less room for a better plan to show.
+Wilds narrowed the gap between the two thinking bots and then gave some of it back: shrewd beat
+greedy 65.8% with no cards, 59.2% with four, and 61.9% with seven. Neither move is a regression. A
+card is a fixed-size lever, so it is worth proportionally more to the weaker position, and the
+deliberately conservative heuristic every seat shares (hold unless the board argues otherwise)
+leaves less room for a better plan to show. The three later cards pull the other way because two of
+them reward reading the board rather than holding it — knowing which rival's partner is worth
+prising loose is the kind of judgement shrewd is better at than greedy.
 
 ## Layout
 
@@ -230,7 +251,7 @@ src/engine/     the rules, with no reference to the DOM
   ministries.ts   the eighteen portfolios and their budgets
   allocation.ts   sealed offers, resolution, tie-breaking, withdrawal
   deck.ts         the card stack — the only consumer of ideology
-  wilds.ts        the four cards a player holds, and what they do to a turn
+  wilds.ts        the seven cards a player holds, and what they do to a turn
   campaign.ts     setup, the turn machine, elections, the win check
   rng.ts          seeded PRNG; the cursor lives in the game state
 src/bots/       random, greedy and shrewd opponents, plus the language-model seat
@@ -297,17 +318,25 @@ greedy bot's move goes to the engine directly or through a round trip of model-s
 `scripts/balance.ts` plays every seed twice with the strategies swapped between the same two seats,
 because the parties are wildly unequal and a naive comparison would mostly measure who drew Likud.
 
-Re-measured with the order paper reaching every seat and the wilds in play: **greedy beats random
-82.7%** over 480 campaigns, every one of them reaching a winner, a campaign running a median of 19
-turns across a mean of 4.25 parliaments. Forming a coalition takes a median of 2 weeks — well inside
-the six-week limit. Governments last a mean of 2.54 years, inside the four-year term, so the term is
-a ceiling on the safe ones rather than the usual way one ends. **Shrewd beats greedy 59.2%.**
+Re-measured with seven wilds in play: **greedy beats random 81.3%** over 480 campaigns, every one of
+them reaching a winner and none hitting the turn cap, a campaign running a median of 18 turns across
+a mean of 4.05 parliaments. Forming a coalition takes a median of 2 weeks — well inside the six-week
+limit. Governments last a mean of 2.64 years, inside the four-year term, so the term is a ceiling on
+the safe ones rather than the usual way one ends. **Shrewd beats greedy 61.9%.**
 
-The evenly-matched tail is long and does not need shortening. Greedy against itself forms in a median
-of 2 weeks but ran to 61 on one board — a 400-seed probe put that at p90 7, p99 10, one campaign in
-400 over twenty weeks, and nothing at all hitting the turn cap. Two identical bots with identical
-money and no tiebreaker beyond the dice is exactly the position that should be able to deadlock, so
-the tail is the rule working rather than a stall to design out.
+The evenly-matched tail is long and does not need shortening. Greedy against itself still forms in a
+median of 2 weeks, but the tail thickened when the last three cards went in: a 400-seed probe put
+negotiations of ten weeks or more at 5 in 400 with four cards and 12 in 400 with seven, p99 moving
+10 → 14. Dropping one card at a time attributes most of that to the auction, which is the expected
+shape rather than a regression — it is the only card that takes a list back off a rival, so a board
+where two blocs both hold one takes longer to settle. Nothing in the 480-campaign run failed to
+reach a winner, and the forming deadline still dissolves a house that cannot agree, so the longer
+tail is the rule working rather than a stall to design out.
+
+Two identical bots with identical money and no tiebreaker beyond the dice is exactly the position
+that should be able to deadlock. The single worst board moves around between runs — 61 weeks on one
+measurement, 24 on the next — which is what a thin tail of outliers looks like and why the
+distribution is quoted here instead of the maximum.
 
 `scripts/tune.ts` is the other half of this, and the one to reach for when changing a bot rather than
 a rule. It plays a matchup over four boards with the seats swapped — 3200 games a configuration —
@@ -370,7 +399,7 @@ Three findings from that probe are baked into the rules and the bot:
   greedy from 82% to 73%: a bad result now follows a player into the next parliament instead of
   being erased, so the same skill wins less often. It also concentrates the chamber, and in about
   one campaign in eighty leaves nobody able to reach 61 even by buying the whole board.
-- **The four-year term is a ceiling, not the usual ending.** Governments average 2.65 years, so most
+- **The four-year term is a ceiling, not the usual ending.** Governments average 2.64 years, so most
   still fall to the opposition rather than to the calendar; the term costs greedy nothing (79% to
   82%) and buys the one thing missing from a winning position — a date on which it has to be
   defended again.

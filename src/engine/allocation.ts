@@ -197,6 +197,9 @@ export const applyWithdrawals = (state: GameState): Withdrawal[] => {
  * Where nobody holds the party, a tie goes to the bidder with the most mandates
  * already behind them: a seat in the government most likely to actually form is
  * worth more than the same seat in one that never will.
+ *
+ * Both halves of that advantage are suspended for a list somebody has played
+ * the auction against, which is the whole of what that card does.
  */
 export const resolveRound = (state: GameState): PartyResult[] => {
   const results: PartyResult[] = [];
@@ -207,20 +210,32 @@ export const resolveRound = (state: GameState): PartyResult[] => {
     const blocked: string[] = [];
     let courted = false;
 
+    // The auction: this list has been forced back out to tender, so the two
+    // halves of the incumbent's advantage are both off. What it has already
+    // been paid does not stack on this week's offer, and a tie no longer goes
+    // to the partner it is already sitting with.
+    const exposed = state.exposed.includes(party.key);
+    const carried = exposed ? 0 : packageValue(state, party.key);
+
     for (const player of state.players) {
       const offer = state.offers[player.key];
       const bid = offer ? bidFor(offer, party.key) : undefined;
       if (!bid) continue;
-      courted = true;
+      // An empty bid is only legal from the party's own holder, and it promises
+      // nothing, so it is not a courtship. Counting it as one would make naming
+      // a party you already hold and offering it nothing strictly worse than
+      // leaving it off the offer entirely — on an exposed list, where the
+      // carried package is worth zero, it would hand the list to nobody.
+      if (bid.ministries.length > 0) courted = true;
       const fresh = valueOf(state, bid.ministries);
       offered[player.key] = [...bid.ministries];
       // The holder's new portfolios stack on what it is already paying.
-      bids[player.key] = party.heldBy === player.key ? packageValue(state, party.key) + fresh : fresh;
+      bids[player.key] = party.heldBy === player.key ? carried + fresh : fresh;
     }
 
     // The incumbent is always in the running, even on a turn it does nothing.
     if (party.heldBy && bids[party.heldBy] === undefined) {
-      bids[party.heldBy] = packageValue(state, party.key);
+      bids[party.heldBy] = carried;
     }
 
     if (!courted) {
@@ -269,7 +284,7 @@ export const resolveRound = (state: GameState): PartyResult[] => {
     if (best > 0 && tied.length === 1) {
       winner = tied[0];
     } else if (best > 0) {
-      if (party.heldBy && tied.includes(party.heldBy)) {
+      if (party.heldBy && !exposed && tied.includes(party.heldBy)) {
         winner = party.heldBy;
       } else {
         winner = [...tied].sort((a, b) => {

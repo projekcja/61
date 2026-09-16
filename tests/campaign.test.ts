@@ -604,8 +604,16 @@ describe("full campaigns", () => {
 
       expect(["forming", "governing", "rebuilding", "over"]).toContain(state.phase);
       expect(seatTotal(state)).toBe(TOTAL_SEATS);
-      expect(biddableParties(state).length).toBeGreaterThan(0);
       expect(state.ministries.length).toBeGreaterThan(0);
+
+      // Something must still be for sale on a board somebody is expected to go
+      // on playing. A finished one is exempt: a campaign that runs long enough
+      // can end with every seat in the two leaders' own lists, and demanding a
+      // party for sale after the game is won is asking the board to stay
+      // playable after there is nobody left to play it.
+      if (state.phase !== "over") {
+        expect(biddableParties(state).length).toBeGreaterThan(0);
+      }
 
       if (state.phase === "over") {
         expect(state.winner).not.toBeNull();
