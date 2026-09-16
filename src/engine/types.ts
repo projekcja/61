@@ -17,7 +17,7 @@ import type { Bloc } from "./parties";
  * whatever code is running now, so a mismatch has to be refused rather than
  * silently producing a different game.
  */
-export const RULES_VERSION = 9;
+export const RULES_VERSION = 10;
 
 export const YEARS_TO_WIN = 10;
 
@@ -347,6 +347,17 @@ export interface GameState {
    * thing that has to read it, and the auction is handed nothing but a board.
    */
   whipped: string[];
+
+  /**
+   * Parties hearing every offer fresh this turn, with the package they already
+   * hold counted as nothing.
+   *
+   * Same lifetime and the same reason as {@link whipped}: written when the
+   * wilds resolve, read by the auction, cleared when the turn ends. The two are
+   * opposite halves of one rule — defending is cheaper than capturing, and
+   * these are the cards that suspend each half of it.
+   */
+  exposed: string[];
 
   log: LogEntry[];
   /** The most recent resolution, kept so the interface can show the reveal. */

@@ -5,9 +5,16 @@ import { resolveRound, validateOffer } from "../src/engine/allocation";
 import { applyAction, newCampaign } from "../src/engine/campaign";
 import { Rng } from "../src/engine/rng";
 import type { GameState, Party } from "../src/engine/types";
-import { emptyOffer, freeMinistries, refusalsAgainst, valueOf } from "../src/engine/types";
+import {
+  FORMING_DEADLINE,
+  emptyOffer,
+  freeMinistries,
+  refusalsAgainst,
+  valueOf,
+} from "../src/engine/types";
 import {
   HAND_LIMIT,
+  WILDS,
   applyWilds,
   canPlay,
   drawWild,
@@ -26,10 +33,35 @@ const spare = (state: GameState): Party => {
   return party;
 };
 
+/**
+ * A party nobody leads *and* nobody has ruled this player out of.
+ *
+ * {@link spare} is enough for a card that does not care what the list thinks,
+ * but a card about money has to be tested on a list that is actually willing to
+ * take the money. A red line beats any bid, so a test that reached for a party
+ * standing against likud would pass or fail on geography rather than on the
+ * card it was written for.
+ */
+const open = (state: GameState, ...playerKeys: string[]): Party => {
+  const who = playerKeys.length > 0 ? playerKeys : ["you"];
+  const led = new Set(state.players.map((player) => player.partyKey));
+  const party = Object.values(state.parties).find(
+    (candidate) =>
+      !led.has(candidate.key) &&
+      who.every((playerKey) => refusalsAgainst(state, candidate, playerKey).length === 0),
+  );
+  if (!party) throw new Error("every list in the chamber has ruled one of these players out");
+  return party;
+};
+
 /** Open the offers and settle the auction, exactly as a turn does. */
 const settle = (state: GameState) => {
   const outcome = applyWilds(state);
+  // Both of these are answers the auction needs and is handed nothing to find,
+  // so the turn writes them to the board first. A test that forgets one is a
+  // test of a card that was never played.
   state.whipped = outcome.whipped;
+  state.exposed = outcome.exposed;
   return { outcome, results: resolveRound(state) };
 };
 
@@ -134,6 +166,108 @@ describe("what the cards do", () => {
     expect(stopped.players[0].yearsInPower).toBe(1);
     expect(ran.players[0].yearsInPower).toBe(2);
   });
+
+  it("takes a list back out to tender, package and tie-break both", () => {
+    const build = (auction: boolean) => {
+      const state = setup();
+      const party = open(state);
+      // A rival's partner, bought and paid for. Defending is meant to be
+      // cheap: the package stacks, so an outsider has to beat the whole thing.
+      party.heldBy = "bot1";
+      party.package = freeMinistries(state, "bot1").slice(0, 3);
+
+      const mine = freeMinistries(state, "you").filter(
+        (ministry) => !party.package.includes(ministry),
+      );
+      const bid = [mine[0]];
+      // The point of the control: this offer is genuinely the smaller one.
+      expect(valueOf(state, bid)).toBeLessThan(valueOf(state, party.package));
+
+      state.players[0].hand = auction ? ["auction"] : [];
+      state.offers = {
+        you: {
+          bids: [{ partyKey: party.key, ministries: bid }],
+          withdrawFrom: [],
+          wild: auction ? { id: "auction", partyKey: party.key } : null,
+        },
+      };
+      const { results } = settle(state);
+      return results.find((result) => result.partyKey === party.key)!;
+    };
+
+    // Without the card the smaller offer loses to a package it never saw.
+    expect(build(false).newHolder).toBe("bot1");
+    expect(build(true).newHolder).toBe("you");
+  });
+
+  it("signs a list to an exclusive that shuts every rival out, then lapses", () => {
+    const build = (exclusive: boolean) => {
+      const state = setup();
+      const party = open(state, "you", "bot1");
+      const rival = state.players[1];
+
+      state.players[0].hand = exclusive ? ["exclusivity"] : [];
+      state.offers = {
+        you: {
+          bids: [],
+          withdrawFrom: [],
+          wild: exclusive ? { id: "exclusivity", partyKey: party.key } : null,
+        },
+        bot1: {
+          bids: [{ partyKey: party.key, ministries: freeMinistries(state, rival.key).slice(0, 2) }],
+          withdrawFrom: [],
+        },
+      };
+      const { results } = settle(state);
+      return { state, party, result: results.find((entry) => entry.partyKey === party.key)! };
+    };
+
+    // The rival's money is real and unopposed. Only the card stops it.
+    expect(build(false).result.newHolder).toBe("bot1");
+
+    const locked = build(true);
+    expect(locked.result.newHolder).toBeNull();
+    expect(locked.result.blocked).toContain("bot1");
+    // Exclusive to somebody, not shut to everybody: the player who signed it
+    // can still walk up and pay.
+    expect(refusalsAgainst(locked.state, locked.party, "you")).toEqual([]);
+
+    // A fortnight, and then the list takes calls again — it is an ordinary
+    // carded refusal, not the ultimatum's permanent strike.
+    locked.state.turn += 3;
+    expect(refusalsAgainst(locked.state, locked.party, "bot1")).toEqual([]);
+  });
+
+  it("keeps the house standing for one more week and no longer", () => {
+    const play = (extend: boolean) => {
+      // Nobody else bidding, so nobody reaches 61 and the deadline is the only
+      // thing that can happen.
+      const state = newCampaign({ seed: 7, humanParty: "likud", bots: [] });
+      state.week = FORMING_DEADLINE;
+      state.players[0].hand = extend ? ["extension"] : [];
+      return applyAction(state, {
+        type: "offer",
+        playerKey: "you",
+        offer: { ...emptyOffer(), wild: extend ? { id: "extension" } : null },
+      }).state;
+    };
+
+    const dissolved = play(false);
+    const saved = play(true);
+    expect(dissolved.parliament).toBe(2);
+    expect(saved.parliament).toBe(1);
+    expect(saved.phase).toBe("forming");
+
+    // One week, not a reprieve. The card is gone and the deadline is still
+    // there, so the next turn dissolves exactly as this one would have.
+    expect(saved.players[0].hand).toEqual([]);
+    const after = applyAction(saved, {
+      type: "offer",
+      playerKey: "you",
+      offer: emptyOffer(),
+    }).state;
+    expect(after.parliament).toBe(2);
+  });
 });
 
 describe("holding a hand", () => {
@@ -213,6 +347,78 @@ describe("every seat can reach the cards", () => {
           state = applyAction(state, { type: "offer", playerKey: "you", offer: move }).state;
         }
       }
+    }
+  });
+
+  it("has a board it will play every card in the deck on", () => {
+    // The order-paper bug in the other direction, and the one the regression
+    // above cannot see: a card with no branch in `preferredWild` is legal,
+    // visible and forever unplayed by every seat a bot is sitting in. A test
+    // that only asks whether the bots play *legally* passes that bug happily,
+    // because a bot that never plays a card never plays an illegal one.
+    //
+    // So this asks the positive question instead. Each builder hands the
+    // player exactly one card and the board that card was written for.
+    const boards: Record<string, (state: GameState) => void> = {
+      whip: (state) => {
+        state.phase = "governing";
+        state.primeMinister = "you";
+        state.parties[state.players[0].partyKey].seats = 30;
+        const held = spare(state);
+        held.heldBy = "you";
+        held.seats = 31; // 61 exactly: a majority worth defending and no more.
+      },
+      ultimatum: (state) => {
+        state.parties[state.players[0].partyKey].seats = 30;
+        const party = spare(state);
+        party.seats = 10;
+        party.refusals = [{ partyKey: "likud", until: state.turn + 10 }];
+      },
+      reshuffle: (state) => {
+        state.parties[state.players[0].partyKey].seats = 30;
+        const held = spare(state);
+        held.heldBy = "you";
+        // Everything the player owns is locked up with one partner, which is
+        // the stalemate the card exists to break.
+        held.package = state.ministries.slice(0, -1).map((ministry) => ministry.key);
+        expect(freeMinistries(state, "you").length).toBeLessThanOrEqual(2);
+      },
+      recess: (state) => {
+        state.phase = "governing";
+        state.primeMinister = "you";
+        state.parties[state.players[0].partyKey].seats = 40;
+      },
+      auction: (state) => {
+        state.parties[state.players[0].partyKey].seats = 30;
+        const party = spare(state);
+        party.heldBy = "bot1";
+        party.seats = 12;
+      },
+      exclusivity: (state) => {
+        state.parties[state.players[0].partyKey].seats = 30;
+        const party = spare(state);
+        party.heldBy = null;
+        party.seats = 12;
+      },
+      extension: (state) => {
+        state.phase = "forming";
+        state.week = FORMING_DEADLINE;
+        state.parties[state.players[0].partyKey].seats = 55;
+      },
+    };
+
+    // The gate. A card added without a board here fails before it ships.
+    expect(Object.keys(boards).sort()).toEqual(WILDS.map((card) => card.id).sort());
+
+    for (const card of WILDS) {
+      const state = setup();
+      boards[card.id](state);
+      state.players[0].hand = [card.id];
+
+      expect(legalPlays(state, "you").map((play) => play.id)).toContain(card.id);
+      const play = preferredWild(state, "you");
+      expect(play, `${card.id}: legal on this board and no seat will ever play it`).not.toBeNull();
+      expect(play?.id).toBe(card.id);
     }
   });
 

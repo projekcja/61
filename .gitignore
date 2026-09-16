@@ -12,3 +12,4 @@ coverage/
 
 # Playtest reports written by scripts/playtest.ts
 playtests/
+probe/

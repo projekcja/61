@@ -11,15 +11,31 @@
  * everything else, so the decision is still made blind against a rival deciding
  * the same thing.
  *
- * The four here are deliberately levers on rules that already exist rather than
+ * The seven here are deliberately levers on rules that already exist rather than
  * new subsystems: one suspends the auction's verdict, one strikes a red line,
- * one unlocks a package, one stops the clock. A fifth card wanting a mechanic of
- * its own is a sign it should be a law or a deck card instead.
+ * one draws a red line, one unlocks a package, one reopens a package somebody
+ * else paid for, one stops the term clock and one stops the forming clock. A
+ * card wanting a mechanic of its own is a sign it should be a law or a deck card
+ * instead.
+ *
+ * They are also spread deliberately across the game rather than across the
+ * rulebook. The first four could all only be played from in front: you had to
+ * hold a party to whip it, hold a package to reshuffle it, hold the government
+ * to send it home. A player being outbid held cards they could not use. The
+ * auction and the exclusivity are levers for the seat that is behind, and the
+ * extension is the only card in the deck that is worth anything on the week the
+ * Knesset would otherwise dissolve.
  */
 
 import type { Rng } from "./rng";
 import type { GameState, Party } from "./types";
-import { blocSeats, freeMinistries, playerOf, refusalsAgainst } from "./types";
+import {
+  FORMING_DEADLINE,
+  blocSeats,
+  freeMinistries,
+  playerOf,
+  refusalsAgainst,
+} from "./types";
 
 /** A card, and the party it is played against where it needs one. */
 export interface WildPlay {
@@ -89,6 +105,47 @@ export const WILDS: WildCard[] = [
     },
   },
   {
+    id: "auction",
+    title: "The auction",
+    effect: "One list hears every offer fresh. What it already has counts for nothing.",
+    targeted: true,
+    // Against a rival's partner only. Played on a free list it would do
+    // nothing, and played on your own it would be an act of self-harm.
+    playable: (state, playerKey, partyKey) => {
+      const party = buyable(state, playerKey, partyKey);
+      return Boolean(party && party.heldBy && party.heldBy !== playerKey);
+    },
+  },
+  {
+    id: "exclusivity",
+    title: "An exclusivity",
+    effect: "One list talks to nobody but you for two weeks. It still has to be paid.",
+    targeted: true,
+    // A list nobody else has yet: either free, or already yours. Prising one
+    // out of a rival's coalition is the auction's job, and letting this card do
+    // it as well would make it strictly the better of the two.
+    playable: (state, playerKey, partyKey) => {
+      const party = buyable(state, playerKey, partyKey);
+      if (!party || (party.heldBy && party.heldBy !== playerKey)) return false;
+      return state.players.some((rival) => rival.key !== playerKey);
+    },
+  },
+  {
+    id: "extension",
+    title: "The extension",
+    effect: "The President grants another week. The house does not dissolve this time.",
+    targeted: false,
+    // Only in the week the Knesset would actually fall. The deadline is checked
+    // at the end of the turn and the week counter moves after that, so the
+    // board a player is looking at on the last week reads exactly
+    // `FORMING_DEADLINE` — this is the turn, and there is no next one.
+    //
+    // A card that buys time is worth nothing while there is still time, and
+    // letting it be spent in week two is letting a player throw it away without
+    // ever being shown the cost.
+    playable: (state) => state.phase === "forming" && state.week >= FORMING_DEADLINE,
+  },
+  {
     id: "recess",
     title: "The recess",
     effect: "The house rises early. This year does not count against the term.",
@@ -153,6 +210,10 @@ export interface WildOutcome {
   whipped: string[];
   /** Players whose year does not count against the term. */
   recess: string[];
+  /** Parties weighing every offer fresh, ignoring the package they hold. */
+  exposed: string[];
+  /** True when somebody bought the house another week to form a government. */
+  extended: boolean;
   log: string[];
 }
 
@@ -165,7 +226,14 @@ const blocPartyKeys = (state: GameState, playerKey: string): string[] =>
     .map((party) => party.key);
 
 export const applyWilds = (state: GameState): WildOutcome => {
-  const outcome: WildOutcome = { played: [], whipped: [], recess: [], log: [] };
+  const outcome: WildOutcome = {
+    played: [],
+    whipped: [],
+    recess: [],
+    exposed: [],
+    extended: false,
+    log: [],
+  };
 
   for (const player of state.players) {
     const play = state.offers[player.key]?.wild ?? null;
@@ -208,6 +276,40 @@ export const applyWilds = (state: GameState): WildOutcome => {
         break;
       }
 
+      case "auction": {
+        if (!party) break;
+        outcome.exposed.push(party.key);
+        outcome.log.push(
+          `${player.name} forces the ${party.name} back out to tender. Its coalition agreement counts for nothing this week.`,
+        );
+        break;
+      }
+
+      case "exclusivity": {
+        if (!party) break;
+        // Written as ordinary carded refusals against every rival's own list,
+        // which is the party that never leaves their bloc. It lapses on the
+        // same timer every other refusal does, and an ultimatum breaks it the
+        // same way — a card that could not be answered by another card would
+        // be the only one in the deck.
+        const rivals = state.players.filter((other) => other.key !== player.key);
+        party.refusals = [
+          ...party.refusals,
+          ...rivals.map((rival) => ({ partyKey: rival.partyKey, until: state.turn + 2 })),
+        ];
+        outcome.log.push(
+          `${player.name} signs the ${party.name} to an exclusive. It takes nobody else's call for a fortnight.`,
+        );
+        break;
+      }
+
+      case "extension":
+        outcome.extended = true;
+        outcome.log.push(
+          `${player.name} goes to the President, who grants another fortnight. The house does not dissolve.`,
+        );
+        break;
+
       case "recess":
         outcome.recess.push(player.key);
         outcome.log.push(`${player.name} sends the house home early. The year does not count.`);
@@ -217,6 +319,15 @@ export const applyWilds = (state: GameState): WildOutcome => {
 
   return outcome;
 };
+
+/** The play in this set against the biggest list, for cards that want size. */
+const biggest = (state: GameState, plays: WildPlay[], id: string): WildPlay | undefined =>
+  plays
+    .filter((play) => play.id === id)
+    .sort((a, b) => (state.parties[b.partyKey!]?.seats ?? 0) - (state.parties[a.partyKey!]?.seats ?? 0))[0];
+
+const seatsOf = (state: GameState, play: WildPlay | undefined): number =>
+  play ? (state.parties[play.partyKey!]?.seats ?? 0) : 0;
 
 /**
  * The card this player's position argues for, if any.
@@ -234,6 +345,17 @@ export const preferredWild = (state: GameState, playerKey: string): WildPlay | n
   const seats = blocSeats(state, playerKey);
   const governing = state.primeMinister === playerKey;
 
+  // The house falls this week unless somebody stops it, and every other card in
+  // hand goes down with it. Checked before anything else for that reason: this
+  // is the one wild with a deadline of its own.
+  //
+  // Worth a card only to a player who can still use the week. Six seats short
+  // is a week away from a government; twelve is a different campaign, and that
+  // bloc does better out of the election than out of the extension — which is
+  // the bet the card refuses, so it is left unplayed and the country votes.
+  const extension = plays.find((play) => play.id === "extension");
+  if (extension && seats >= 55 && seats < 61) return extension;
+
   // Stopping the clock is worth a card only while it is buying a year that
   // would otherwise be spent on an election this player might lose.
   const recess = plays.find((play) => play.id === "recess");
@@ -247,6 +369,19 @@ export const preferredWild = (state: GameState, playerKey: string): WildPlay | n
   if (ultimatum && (state.parties[ultimatum.partyKey!]?.seats ?? 0) >= 6 && seats < 61) {
     return ultimatum;
   }
+
+  // A big list already sitting in a rival's coalition is the most expensive
+  // thing on the board: the holder's package stacks and ties go to them, so
+  // capturing one costs more than it is worth. The card deletes both, and it is
+  // the only move a player who is behind can make that money will not sell.
+  const auction = biggest(state, plays, "auction");
+  if (auction && seatsOf(state, auction) >= 8 && seats < 61) return auction;
+
+  // A free list big enough to be the difference, taken off the market before a
+  // rival bids for it. Only worth a card while somebody else could still take
+  // it, which late in a parliament is rarely true.
+  const exclusivity = biggest(state, plays, "exclusivity");
+  if (exclusivity && seatsOf(state, exclusivity) >= 8 && seats < 61) return exclusivity;
 
   // Locked portfolios with nothing left in hand is the stalemate the card was
   // written for.

@@ -157,6 +157,7 @@ export const newCampaign = (options: CampaignOptions = {}): GameState => {
     repairing: false,
     offers: {},
     whipped: [],
+    exposed: [],
     log: [],
     lastTurn: null,
     lastElection: null,
@@ -272,6 +273,7 @@ const resolveTurn = (state: GameState): TurnResult => {
   // bids they are funding are weighed.
   const wilds = applyWilds(state);
   state.whipped = wilds.whipped;
+  state.exposed = wilds.exposed;
   for (const line of wilds.log) log(state, "deal", line);
 
   // Anyone walking away from a partner does so before the offers are opened,
@@ -353,7 +355,7 @@ const resolveTurn = (state: GameState): TurnResult => {
 
   expireRefusals(state);
   const pmBefore = state.primeMinister;
-  advancePhase(state, rng);
+  advancePhase(state, rng, wilds.extended);
   const swornIn =
     state.primeMinister && state.primeMinister !== pmBefore ? state.primeMinister : null;
 
@@ -371,15 +373,17 @@ const resolveTurn = (state: GameState): TurnResult => {
   const result: TurnResult = { turn: state.turn, parties, withdrawals, cards, laws, swornIn };
   state.lastTurn = result;
   state.offers = {};
-  // The whip lasts the turn it was played and not a moment longer.
+  // The whip and the auction last the turn they were played and not a moment
+  // longer.
   state.whipped = [];
+  state.exposed = [];
   state.turn += 1;
   if (state.phase === "forming") state.week += 1;
   state.rngState = rng.state;
   return result;
 };
 
-const advancePhase = (state: GameState, rng: Rng): void => {
+const advancePhase = (state: GameState, rng: Rng, extended = false): void => {
   if (state.phase === "forming") {
     const contenders = state.players
       .map((player) => ({ player, seats: blocSeats(state, player.key) }))
@@ -390,7 +394,7 @@ const advancePhase = (state: GameState, rng: Rng): void => {
       // Nobody can put 61 together. The Knesset dissolves itself and the
       // voters get another go, which is the only thing that breaks a deadlock
       // once every portfolio is locked up.
-      if (state.week >= FORMING_DEADLINE) {
+      if (state.week >= FORMING_DEADLINE && !extended) {
         log(
           state,
           "trouble",
