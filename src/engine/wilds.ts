@@ -377,10 +377,15 @@ export const preferredWild = (state: GameState, playerKey: string): WildPlay | n
   const auction = biggest(state, plays, "auction");
   if (auction && seatsOf(state, auction) >= 8 && seats < 61) return auction;
 
-  // A free list big enough to be the difference, taken off the market before a
-  // rival bids for it. Only worth a card while somebody else could still take
-  // it, which late in a parliament is rarely true.
-  const exclusivity = biggest(state, plays, "exclusivity");
+  // A list big enough to be the difference, signed to take nobody else's call
+  // for a fortnight. On a free list that is a capture no rival can outbid; on
+  // one already in this coalition it is the whip narrowed to a single partner.
+  // A player short of a majority wants the capture, so a free list is taken
+  // first and a held one is the fallback.
+  const unheld = plays.filter(
+    (play) => play.id === "exclusivity" && !state.parties[play.partyKey!]?.heldBy,
+  );
+  const exclusivity = biggest(state, unheld.length > 0 ? unheld : plays, "exclusivity");
   if (exclusivity && seatsOf(state, exclusivity) >= 8 && seats < 61) return exclusivity;
 
   // Locked portfolios with nothing left in hand is the stalemate the card was

@@ -214,8 +214,10 @@ played from in front: you had to hold a party to whip it, hold a package to resh
 government to send it home, so a player being outbid held cards they could not use. The auction and
 the exclusivity are levers for the seat that is behind — the auction suspends both halves of the
 incumbent's advantage on one list, since defending is otherwise cheaper than capturing twice over,
-and the exclusivity takes a list off the market before a rival can bid. The extension is worth
-nothing on any board except the week the Knesset would otherwise dissolve.
+and the exclusivity takes a list off the market before a rival can bid. It plays on a list already
+in your coalition too, where it is the whip narrowed to a single partner, though a player short of a
+majority usually wants the capture. The extension is worth nothing on any board except the week the
+Knesset would otherwise dissolve.
 
 The exclusivity is written as ordinary carded refusals against every rival's own list, so it lapses
 on the same timer every other refusal does and an ultimatum breaks it the same way. A card that
@@ -234,7 +236,7 @@ still shows in the hand, greyed, because a whip that is absent while you hold no
 teaches why.
 
 Wilds narrowed the gap between the two thinking bots and then gave some of it back: shrewd beat
-greedy 65.8% with no cards, 59.2% with four, and 61.7% with seven. Neither move is a regression. A
+greedy 65.8% with no cards, 59.2% with four, and 61.9% with seven. Neither move is a regression. A
 card is a fixed-size lever, so it is worth proportionally more to the weaker position, and the
 deliberately conservative heuristic every seat shares (hold unless the board argues otherwise)
 leaves less room for a better plan to show. The three later cards pull the other way because two of
@@ -316,15 +318,15 @@ greedy bot's move goes to the engine directly or through a round trip of model-s
 `scripts/balance.ts` plays every seed twice with the strategies swapped between the same two seats,
 because the parties are wildly unequal and a naive comparison would mostly measure who drew Likud.
 
-Re-measured with seven wilds in play: **greedy beats random 81.9%** over 480 campaigns, every one of
+Re-measured with seven wilds in play: **greedy beats random 81.3%** over 480 campaigns, every one of
 them reaching a winner and none hitting the turn cap, a campaign running a median of 18 turns across
-a mean of 4.03 parliaments. Forming a coalition takes a median of 2 weeks — well inside the six-week
-limit. Governments last a mean of 2.65 years, inside the four-year term, so the term is a ceiling on
-the safe ones rather than the usual way one ends. **Shrewd beats greedy 61.7%.**
+a mean of 4.05 parliaments. Forming a coalition takes a median of 2 weeks — well inside the six-week
+limit. Governments last a mean of 2.64 years, inside the four-year term, so the term is a ceiling on
+the safe ones rather than the usual way one ends. **Shrewd beats greedy 61.9%.**
 
 The evenly-matched tail is long and does not need shortening. Greedy against itself still forms in a
 median of 2 weeks, but the tail thickened when the last three cards went in: a 400-seed probe put
-negotiations of ten weeks or more at 5 in 400 with four cards and 13 in 400 with seven, p99 moving
+negotiations of ten weeks or more at 5 in 400 with four cards and 12 in 400 with seven, p99 moving
 10 → 14. Dropping one card at a time attributes most of that to the auction, which is the expected
 shape rather than a regression — it is the only card that takes a list back off a rival, so a board
 where two blocs both hold one takes longer to settle. Nothing in the 480-campaign run failed to
@@ -333,7 +335,7 @@ tail is the rule working rather than a stall to design out.
 
 Two identical bots with identical money and no tiebreaker beyond the dice is exactly the position
 that should be able to deadlock. The single worst board moves around between runs — 61 weeks on one
-measurement, 19 on the next — which is what a thin tail of outliers looks like and why the
+measurement, 24 on the next — which is what a thin tail of outliers looks like and why the
 distribution is quoted here instead of the maximum.
 
 `scripts/tune.ts` is the other half of this, and the one to reach for when changing a bot rather than
@@ -397,7 +399,7 @@ Three findings from that probe are baked into the rules and the bot:
   greedy from 82% to 73%: a bad result now follows a player into the next parliament instead of
   being erased, so the same skill wins less often. It also concentrates the chamber, and in about
   one campaign in eighty leaves nobody able to reach 61 even by buying the whole board.
-- **The four-year term is a ceiling, not the usual ending.** Governments average 2.65 years, so most
+- **The four-year term is a ceiling, not the usual ending.** Governments average 2.64 years, so most
   still fall to the opposition rather than to the calendar; the term costs greedy nothing (79% to
   82%) and buys the one thing missing from a winning position — a date on which it has to be
   defended again.

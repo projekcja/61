@@ -7,6 +7,7 @@ import { Rng } from "../src/engine/rng";
 import type { GameState, Party } from "../src/engine/types";
 import {
   FORMING_DEADLINE,
+  blocSeats,
   emptyOffer,
   freeMinistries,
   refusalsAgainst,
@@ -167,7 +168,7 @@ describe("what the cards do", () => {
     expect(ran.players[0].yearsInPower).toBe(2);
   });
 
-  it("takes a list back out to tender, package and tie-break both", () => {
+  it("takes a list back out to tender, so a paid-for package counts for nothing", () => {
     const build = (auction: boolean) => {
       const state = setup();
       const party = open(state);
@@ -197,6 +198,92 @@ describe("what the cards do", () => {
 
     // Without the card the smaller offer loses to a package it never saw.
     expect(build(false).newHolder).toBe("bot1");
+    expect(build(true).newHolder).toBe("you");
+  });
+
+  it("takes the incumbent's tie away with it, not only the package", () => {
+    // The package half of the rule is what the test above measures. This is the
+    // other half: an incumbent holds a tie by matching rather than beating, and
+    // an exposed list no longer lets it. Both arms are built so the carried
+    // package is worth nothing to anybody — the held list has an empty one —
+    // which leaves the tie rule as the only thing left to decide the round.
+    //
+    // Underneath the incumbent's tie is the rule that a tie goes to the larger
+    // bloc, so the seat holding the list has to be the smaller one for the
+    // change to be visible at all. That is why this board seats the player on a
+    // nine-seat list rather than on likud.
+    const board = (): GameState =>
+      newCampaign({ seed: 11, humanParty: "shas", bots: ["greedy"] });
+
+    const build = (auction: boolean) => {
+      const state = board();
+      const led = new Set(state.players.map((player) => player.partyKey));
+      const party = Object.values(state.parties).find(
+        (candidate) =>
+          !led.has(candidate.key) &&
+          refusalsAgainst(state, candidate, "you").length === 0 &&
+          refusalsAgainst(state, candidate, "bot1").length === 0 &&
+          // Small enough that holding it still leaves this seat the underdog.
+          blocSeats(state, "you") + candidate.seats < blocSeats(state, "bot1"),
+      );
+      if (!party) throw new Error("no open list on this board leaves the holder behind");
+      party.heldBy = "you";
+      party.package = [];
+
+      // Equal money from both sides, which is the whole point. An unpromised
+      // portfolio is on offer from every seat at once — it is spoken for only
+      // when a bid carrying it wins — so the same one from both is the exact
+      // tie the rule is about.
+      const theirs = new Set(freeMinistries(state, "bot1"));
+      const stake = freeMinistries(state, "you").find((ministry) => theirs.has(ministry));
+      if (!stake) throw new Error("these two seats have no portfolio in common");
+      expect(valueOf(state, [stake])).toBeGreaterThan(0);
+
+      state.players[1].hand = auction ? ["auction"] : [];
+      state.offers = {
+        you: { bids: [{ partyKey: party.key, ministries: [stake] }], withdrawFrom: [] },
+        bot1: {
+          bids: [{ partyKey: party.key, ministries: [stake] }],
+          withdrawFrom: [],
+          wild: auction ? { id: "auction", partyKey: party.key } : null,
+        },
+      };
+      const { results } = settle(state);
+      return results.find((result) => result.partyKey === party.key)!;
+    };
+
+    // Equal money leaves the list exactly where it is, until the card takes the
+    // tie away and the rule underneath hands it to the larger bloc.
+    expect(build(false).newHolder).toBe("you");
+    expect(build(true).newHolder).toBe("bot1");
+  });
+
+  it("does not punish a holder for naming a list it is offering nothing", () => {
+    // An empty bid is legal only from the list's own holder, and it promises
+    // nothing. It has to stay the no-op it reads as: an exposed list carries a
+    // package worth zero, so counting the empty bid as a courtship would score
+    // the round at nothing and hand the list to nobody — making the harmless
+    // click strictly worse than staying silent.
+    const build = (named: boolean) => {
+      const state = setup();
+      const party = open(state, "you", "bot1");
+      party.heldBy = "you";
+      party.package = freeMinistries(state, "you").slice(0, 2);
+
+      state.players[1].hand = ["auction"];
+      state.offers = {
+        you: {
+          bids: named ? [{ partyKey: party.key, ministries: [] }] : [],
+          withdrawFrom: [],
+        },
+        bot1: { bids: [], withdrawFrom: [], wild: { id: "auction", partyKey: party.key } },
+      };
+      const { results } = settle(state);
+      return results.find((result) => result.partyKey === party.key)!;
+    };
+
+    // Saying nothing and saying nothing out loud are the same move.
+    expect(build(false).newHolder).toBe("you");
     expect(build(true).newHolder).toBe("you");
   });
 

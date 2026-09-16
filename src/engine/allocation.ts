@@ -221,7 +221,12 @@ export const resolveRound = (state: GameState): PartyResult[] => {
       const offer = state.offers[player.key];
       const bid = offer ? bidFor(offer, party.key) : undefined;
       if (!bid) continue;
-      courted = true;
+      // An empty bid is only legal from the party's own holder, and it promises
+      // nothing, so it is not a courtship. Counting it as one would make naming
+      // a party you already hold and offering it nothing strictly worse than
+      // leaving it off the offer entirely — on an exposed list, where the
+      // carried package is worth zero, it would hand the list to nobody.
+      if (bid.ministries.length > 0) courted = true;
       const fresh = valueOf(state, bid.ministries);
       offered[player.key] = [...bid.ministries];
       // The holder's new portfolios stack on what it is already paying.
