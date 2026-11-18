@@ -661,6 +661,33 @@ describe("the deck", () => {
   it("keeps some ideological cards, since that is the only thing reading politics", () => {
     expect(CARDS.filter((card) => card.ideological).length).toBeGreaterThanOrEqual(4);
   });
+
+  it("has no card that cannot come up", () => {
+    // The other two tests here are satisfied by a card that never fires: a
+    // weight stuck at 0, or a play() that always returns null, passes both. A
+    // card nobody ever sees is not a card, and the deck is the part of this
+    // game most likely to grow a dead one, since a precondition is easy to
+    // write and hard to notice going stale.
+    //
+    // Titles rather than ids because the log is what a player actually gets,
+    // and a card that fires into a log line nobody can attribute is the same
+    // problem wearing a different hat. Every title is distinct, and this holds
+    // that too.
+    const titles = CARDS.map((card) => card.title);
+    expect(new Set(titles).size).toBe(titles.length);
+
+    // Full coverage lands around thirty campaigns; sixty is the margin.
+    const seen = new Set<string>();
+    for (let seed = 0; seed < 60; seed++) {
+      for (const entry of playCampaign({ seed, maxTurns: 400 }).state.log) {
+        if (entry.kind === "card") seen.add(entry.text.split(" — ")[0]);
+      }
+    }
+
+    for (const title of titles) {
+      expect(seen.has(title), `${title}: in the deck and never drawn in 60 campaigns`).toBe(true);
+    }
+  });
 });
 
 describe("bots", () => {

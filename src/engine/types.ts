@@ -17,7 +17,7 @@ import type { Bloc } from "./parties";
  * whatever code is running now, so a mismatch has to be refused rather than
  * silently producing a different game.
  */
-export const RULES_VERSION = 10;
+export const RULES_VERSION = 11;
 
 export const YEARS_TO_WIN = 10;
 
